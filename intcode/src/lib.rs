@@ -66,6 +66,44 @@ pub fn execute_intcode(memory: &[i64]) -> Vec<i64> {
             // write output to stdout
             println!("{}", param1);
             address += 2;
+        } else if opcode == 5 {
+            let param1 = get_param_value(&tape, address + 1, mode1);
+            let param2 = get_param_value(&tape, address + 2, mode2);
+            if param1 != 0 {
+                address = param2 as usize;
+            } else {
+                address += 3;
+            }
+        } else if opcode == 6 {
+            let param1 = get_param_value(&tape, address + 1, mode1);
+            let param2 = get_param_value(&tape, address + 2, mode2);
+            if param1 == 0 {
+                address = param2 as usize;
+            } else {
+                address += 3;
+            }
+        } else if opcode == 7 {
+            let param1 = get_param_value(&tape, address + 1, mode1);
+            let param2 = get_param_value(&tape, address + 2, mode2);
+            let param3_value = tape[address + 3];
+            assert!(mode3 == 0, "invalid param 3 mode (only 0 allowed): {}", instruction);
+            if param1 < param2 {
+                tape[param3_value as usize] = 1;
+            } else {
+                tape[param3_value as usize] = 0;
+            }
+            address += 4;
+        } else if opcode == 8 {
+            let param1 = get_param_value(&tape, address + 1, mode1);
+            let param2 = get_param_value(&tape, address + 2, mode2);
+            let param3_value = tape[address + 3];
+            assert!(mode3 == 0, "invalid param 3 mode (only 0 allowed): {}", instruction);
+            if param1 == param2 {
+                tape[param3_value as usize] = 1;
+            } else {
+                tape[param3_value as usize] = 0;
+            }
+            address += 4;
         } else {
             panic!("invalid opcode: {} (full instruction: {}@{})", opcode, instruction, address);
         }
