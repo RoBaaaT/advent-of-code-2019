@@ -1,17 +1,9 @@
-use std::io::BufReader;
-use std::io::BufRead;
 use std::fs::File;
-use intcode::execute_intcode;
+use intcode::*;
 
 fn main() {
     let input_file = File::open("input.txt").unwrap();
-    let input = BufReader::new(&input_file);
-    let mut tape = Vec::new();
-    for opcode in input.split(b',') {
-        let op_str = String::from_utf8(opcode.unwrap()).unwrap();
-        let op: i64 = op_str.trim_end().parse().unwrap();
-        tape.push(op);
-    }
+    let mut tape = load_tape(input_file);
 
     tape[1] = 12;
     tape[2] = 2;
