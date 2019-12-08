@@ -111,3 +111,43 @@ pub fn execute_intcode(memory: &[i64]) -> Vec<i64> {
 
     tape
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::execute_intcode;
+
+    #[test]
+    #[should_panic]
+    fn missing_halt() {
+        let memory = vec![1, 0, 0, 3];
+        execute_intcode(&memory);
+    }
+
+    #[test]
+    fn add_positional() {
+        let mut memory = vec![1, 0, 0, 3, 99];
+        memory = execute_intcode(&memory);
+        assert_eq!(memory[3], 2);
+    }
+
+    #[test]
+    fn add_immediate() {
+        let mut memory = vec![1101, 1, 1, 3, 99];
+        memory = execute_intcode(&memory);
+        assert_eq!(memory[3], 2);
+    }
+
+    #[test]
+    fn multiply_positional() {
+        let mut memory = vec![2, 0, 0, 3, 99];
+        memory = execute_intcode(&memory);
+        assert_eq!(memory[3], 4);
+    }
+
+    #[test]
+    fn multiply_immediate() {
+        let mut memory = vec![1102, 5, 2, 3, 99];
+        memory = execute_intcode(&memory);
+        assert_eq!(memory[3], 10);
+    }
+}
