@@ -6,5 +6,5 @@ fn main() {
     let tape = load_tape(input_file);
 
     println!("Part 1:");
-    execute_intcode(&tape);
+    execute_intcode(&tape, &mut StdInput, &mut StdOutput);
 }

@@ -14,6 +14,80 @@ pub fn load_tape(input: File) -> Vec<i64> {
     tape
 }
 
+pub trait Input {
+    fn get_next(&mut self) -> i64;
+}
+
+pub trait Output {
+    fn output(&mut self, value: i64);
+}
+
+pub struct StdInput;
+
+impl Input for StdInput {
+    fn get_next(&mut self) -> i64 {
+        // read input from stdin
+        println!("Waiting for input:");
+        let mut input_text = String::new();
+        io::stdin().read_line(&mut input_text).expect("failed to read from stdin");
+        match input_text.trim().parse::<i64>() {
+            Ok(i) => i,
+            Err(..) => panic!("invalid input: '{}'", input_text.trim())
+        }
+    }
+}
+
+pub struct StdOutput;
+
+impl Output for StdOutput {
+    fn output(&mut self, value: i64) {
+        // write output to stdout
+        println!("{}", value);
+    }
+}
+
+pub struct VecInput {
+    i: usize,
+    values: Vec<i64>
+}
+
+impl VecInput {
+    pub fn new(values: Vec<i64>) -> VecInput {
+        VecInput { i: 0, values: values }
+    }
+}
+
+impl Input for VecInput {
+    fn get_next(&mut self) -> i64 {
+        if self.i >= self.values.len() {
+            panic!("not enough inputs provided to VecInput ({} requested, {} provided)", self.i + 1, self.values.len())
+        }
+        let result = self.values[self.i];
+        self.i = self.i + 1;
+        result
+    }
+}
+
+pub struct VecOutput {
+    values: Vec<i64>
+}
+
+impl VecOutput {
+    pub fn new() -> VecOutput {
+        VecOutput { values: Vec::new() }
+    }
+
+    pub fn values(&self) -> &Vec<i64> {
+        &self.values
+    }
+}
+
+impl Output for VecOutput {
+    fn output(&mut self, value: i64) {
+        self.values.push(value);
+    }
+}
+
 fn get_param_value(memory: &[i64], address: usize, mode: i64) -> i64 {
     let param_value = memory[address];
     match mode {
@@ -23,7 +97,7 @@ fn get_param_value(memory: &[i64], address: usize, mode: i64) -> i64 {
     }
 }
 
-pub fn execute_intcode(memory: &[i64]) -> Vec<i64> {
+pub fn execute_intcode<I: Input, O: Output>(memory: &[i64], input: &mut I, output: &mut O) -> Vec<i64> {
     let mut tape = memory.to_vec();
 
     let mut address = 0;
@@ -52,19 +126,11 @@ pub fn execute_intcode(memory: &[i64]) -> Vec<i64> {
         } else if opcode == 3 {
             assert!(mode1 == 0, "invalid param 1 mode (only 0 allowed): {}", instruction);
             let param1_value = tape[address + 1];
-            // read input from stdin
-            println!("Waiting for input:");
-            let mut input_text = String::new();
-            io::stdin().read_line(&mut input_text).expect("failed to read from stdin");
-            match input_text.trim().parse::<i64>() {
-                Ok(i) => tape[param1_value as usize] = i,
-                Err(..) => panic!("invalid input: '{}'", input_text.trim())
-            };
+            tape[param1_value as usize] = input.get_next();
             address += 2;
         } else if opcode == 4 {
             let param1 = get_param_value(&tape, address + 1, mode1);
-            // write output to stdout
-            println!("{}", param1);
+            output.output(param1);
             address += 2;
         } else if opcode == 5 {
             let param1 = get_param_value(&tape, address + 1, mode1);

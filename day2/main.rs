@@ -8,13 +8,13 @@ fn main() {
     tape[1] = 12;
     tape[2] = 2;
 
-    println!("Part 1: {}", execute_intcode(&tape)[0]);
+    println!("Part 1: {}", execute_intcode(&tape, &mut StdInput, &mut StdOutput)[0]);
 
     for noun in 0..99 {
         for verb in 0..99 {       
             tape[1] = noun;
             tape[2] = verb;
-            if execute_intcode(&tape)[0] == 19690720 {
+            if execute_intcode(&tape, &mut StdInput, &mut StdOutput)[0] == 19690720 {
                 println!("Part 2: {}", 100 * noun + verb);
             }
         }
