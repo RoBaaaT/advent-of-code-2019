@@ -2,6 +2,8 @@ use std::io;
 use std::io::BufReader;
 use std::io::BufRead;
 use std::fs::File;
+use std::ops::Index;
+use std::ops::IndexMut;
 
 pub fn load_tape(input: File) -> Vec<i64> {
     let reader = BufReader::new(&input);
@@ -88,17 +90,56 @@ impl Output for VecOutput {
     }
 }
 
-fn get_param_value(memory: &[i64], address: usize, mode: i64) -> i64 {
+fn get_param_value(memory: &Memory, address: usize, mode: i64) -> i64 {
     let param_value = memory[address];
     match mode {
         0 => memory[param_value as usize],
         1 => param_value,
-        _ => panic!("invalid param mode: {})", mode)
+        2 => memory[(memory.relative_base + param_value) as usize],
+        _ => panic!("invalid read param mode: {})", mode)
+    }
+}
+
+fn set_memory_value(memory: &mut Memory, address: i64, mode: i64, value: i64) {
+    let relative_base = memory.relative_base;
+    match mode {
+        0 => memory[address as usize] = value,
+        2 => memory[(relative_base + address) as usize] = value,
+        _ => panic!("invalid write param mode: {})", mode)
+    };
+}
+
+struct Memory {
+    memory: Vec<i64>,
+    relative_base: i64
+}
+
+impl Index<usize> for Memory {
+    type Output = i64;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        if index < self.memory.len() {
+            &self.memory[index]
+        } else {
+            &0
+        }
+    }
+}
+
+impl IndexMut<usize> for Memory {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        if index >= self.memory.len() {
+            let required_mem = index - self.memory.len() + 1;
+            for _ in 0..required_mem {
+                self.memory.push(0);
+            }
+        }
+        &mut self.memory[index]
     }
 }
 
 pub fn execute_intcode<I: Input, O: Output>(memory: &[i64], input: &mut I, output: &mut O) -> Vec<i64> {
-    let mut tape = memory.to_vec();
+    let mut tape = Memory { memory: memory.to_vec(), relative_base: 0 };
 
     let mut address = 0;
     loop {
@@ -110,23 +151,20 @@ pub fn execute_intcode<I: Input, O: Output>(memory: &[i64], input: &mut I, outpu
         if opcode == 99 {
             break;
         } else if opcode == 1 {
-            let param3_value = tape[address + 3];
             let param1 = get_param_value(&tape, address + 1, mode1);
             let param2 = get_param_value(&tape, address + 2, mode2);
-            assert!(mode3 == 0, "invalid param 3 mode (only 0 allowed): {}", instruction);
-            tape[param3_value as usize] = param1 + param2;
+            let out_address = tape[address + 3];
+            set_memory_value(&mut tape, out_address, mode3, param1 + param2);
             address += 4;
         } else if opcode == 2 {
-            let param3_value = tape[address + 3];
             let param1 = get_param_value(&tape, address + 1, mode1);
             let param2 = get_param_value(&tape, address + 2, mode2);
-            assert!(mode3 == 0, "invalid param 3 mode (only 0 allowed): {}", instruction);
-            tape[param3_value as usize] = param1 * param2;
+            let out_address = tape[address + 3];
+            set_memory_value(&mut tape, out_address, mode3, param1 * param2);
             address += 4;
         } else if opcode == 3 {
-            assert!(mode1 == 0, "invalid param 1 mode (only 0 allowed): {}", instruction);
-            let param1_value = tape[address + 1];
-            tape[param1_value as usize] = input.get_next();
+            let out_address = tape[address + 1];
+            set_memory_value(&mut tape, out_address, mode1, input.get_next());
             address += 2;
         } else if opcode == 4 {
             let param1 = get_param_value(&tape, address + 1, mode1);
@@ -151,69 +189,106 @@ pub fn execute_intcode<I: Input, O: Output>(memory: &[i64], input: &mut I, outpu
         } else if opcode == 7 {
             let param1 = get_param_value(&tape, address + 1, mode1);
             let param2 = get_param_value(&tape, address + 2, mode2);
-            let param3_value = tape[address + 3];
-            assert!(mode3 == 0, "invalid param 3 mode (only 0 allowed): {}", instruction);
+            let out_address = tape[address + 3];
             if param1 < param2 {
-                tape[param3_value as usize] = 1;
+                set_memory_value(&mut tape, out_address, mode3, 1);
             } else {
-                tape[param3_value as usize] = 0;
+                set_memory_value(&mut tape, out_address, mode3, 0);
             }
             address += 4;
         } else if opcode == 8 {
             let param1 = get_param_value(&tape, address + 1, mode1);
             let param2 = get_param_value(&tape, address + 2, mode2);
-            let param3_value = tape[address + 3];
-            assert!(mode3 == 0, "invalid param 3 mode (only 0 allowed): {}", instruction);
+            let out_address = tape[address + 3];
             if param1 == param2 {
-                tape[param3_value as usize] = 1;
+                set_memory_value(&mut tape, out_address, mode3, 1);
             } else {
-                tape[param3_value as usize] = 0;
+                set_memory_value(&mut tape, out_address, mode3, 0);
             }
             address += 4;
+        } else if opcode == 9 {
+            let param1 = get_param_value(&tape, address + 1, mode1);
+            tape.relative_base += param1;
+            address += 2;
         } else {
             panic!("invalid opcode: {} (full instruction: {}@{})", opcode, instruction, address);
         }
     }
 
-    tape
+    tape.memory
 }
 
 #[cfg(test)]
 mod tests {
     use crate::execute_intcode;
+    use crate::StdInput;
+    use crate::StdOutput;
+    use crate::VecOutput;
 
     #[test]
     #[should_panic]
     fn missing_halt() {
         let memory = vec![1, 0, 0, 3];
-        execute_intcode(&memory);
+        execute_intcode(&memory, &mut StdInput, &mut StdOutput);
     }
 
     #[test]
     fn add_positional() {
         let mut memory = vec![1, 0, 0, 3, 99];
-        memory = execute_intcode(&memory);
+        memory = execute_intcode(&memory, &mut StdInput, &mut StdOutput);
         assert_eq!(memory[3], 2);
     }
 
     #[test]
     fn add_immediate() {
         let mut memory = vec![1101, 1, 1, 3, 99];
-        memory = execute_intcode(&memory);
+        memory = execute_intcode(&memory, &mut StdInput, &mut StdOutput);
         assert_eq!(memory[3], 2);
     }
 
     #[test]
     fn multiply_positional() {
         let mut memory = vec![2, 0, 0, 3, 99];
-        memory = execute_intcode(&memory);
+        memory = execute_intcode(&memory, &mut StdInput, &mut StdOutput);
         assert_eq!(memory[3], 4);
     }
 
     #[test]
     fn multiply_immediate() {
         let mut memory = vec![1102, 5, 2, 3, 99];
-        memory = execute_intcode(&memory);
+        memory = execute_intcode(&memory, &mut StdInput, &mut StdOutput);
         assert_eq!(memory[3], 10);
+    }
+
+    #[test]
+    fn self_copy() {
+        let memory = vec![109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99];
+        let mut out = VecOutput::new();
+        execute_intcode(&memory, &mut StdInput, &mut out);
+        assert_eq!(out.values, memory);
+    }
+
+    #[test]
+    fn sixteen_digit_number() {
+        let memory = vec![1102,34915192,34915192,7,4,7,99,0];
+        let mut out = VecOutput::new();
+        execute_intcode(&memory, &mut StdInput, &mut out);
+        assert_eq!((out.values[0].abs() as f64).log10() as i64, 15);
+    }
+
+    #[test]
+    fn large_number() {
+        let memory = vec![104,1125899906842624,99];
+        let mut out = VecOutput::new();
+        execute_intcode(&memory, &mut StdInput, &mut out);
+        assert_eq!(out.values[0], 1125899906842624);
+    }
+
+    #[test]
+    fn relative_base() {
+        let memory = vec![109,15,109,19,204,-34,99];
+        let mut out = VecOutput::new();
+        execute_intcode(&memory, &mut StdInput, &mut out);
+        assert_eq!(out.values[0], 109);
     }
 }
