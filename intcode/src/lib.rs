@@ -48,6 +48,15 @@ impl Output for StdOutput {
     }
 }
 
+pub struct StdASCIIOutput;
+
+impl Output for StdASCIIOutput {
+    fn output(&mut self, value: i64) {
+        // write output to stdout
+        print!("{}", value as u8 as char);
+    }
+}
+
 pub struct VecInput {
     i: usize,
     values: Vec<i64>
