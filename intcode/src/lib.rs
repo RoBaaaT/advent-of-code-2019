@@ -48,11 +48,24 @@ impl Output for StdOutput {
     }
 }
 
-pub struct StdASCIIOutput;
+pub struct StdASCIIOutput {
+    last_output: i64
+}
+
+impl StdASCIIOutput {
+    pub fn new() -> StdASCIIOutput {
+        StdASCIIOutput { last_output: 0 }
+    }
+
+    pub fn last_output(&self) -> i64 {
+        self.last_output
+    }
+}
 
 impl Output for StdASCIIOutput {
     fn output(&mut self, value: i64) {
         // write output to stdout
+        self.last_output = value;
         print!("{}", value as u8 as char);
     }
 }
