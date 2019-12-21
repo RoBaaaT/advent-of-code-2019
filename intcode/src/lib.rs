@@ -92,6 +92,22 @@ impl Input for VecInput {
     }
 }
 
+pub struct StringInput<'a> {
+    chars: std::str::Chars<'a>
+}
+
+impl<'a> StringInput<'a> {
+    pub fn new(chars: std::str::Chars<'a>) -> StringInput<'a> {
+        StringInput { chars: chars }
+    }
+}
+
+impl<'a> Input for StringInput<'a> {
+    fn get_next(&mut self) -> i64 {
+        self.chars.next().unwrap() as i64
+    }
+}
+
 pub struct VecOutput {
     values: Vec<i64>
 }

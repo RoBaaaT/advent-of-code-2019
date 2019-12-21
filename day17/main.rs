@@ -100,12 +100,9 @@ fn main() {
 
     tape[0] = 2;
     let command = "A,B,A,B,A,C,B,C,A,C\nL,6,R,12,L,6\nR,12,L,10,L,4,L,6\nL,10,L,10,L,4,L,6\ny\n";
-    let mut command_vector = Vec::new();
-    for c in command.chars() {
-        command_vector.push(c as i64);
-    }
+    let mut command_input = StringInput::new(command.chars());
     let mut output = StdASCIIOutput::new();
-    execute_intcode(&tape, &mut VecInput::new(command_vector), &mut output);
+    execute_intcode(&tape, &mut command_input, &mut output);
     print!("\n");
     println!("Part 2: {}", output.last_output());
 }
