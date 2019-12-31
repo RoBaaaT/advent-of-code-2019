@@ -147,7 +147,7 @@ fn set_memory_value(memory: &mut Memory, address: i64, mode: i64, value: i64) {
     };
 }
 
-struct Memory {
+pub struct Memory {
     memory: Vec<i64>,
     relative_base: i64
 }
@@ -176,82 +176,85 @@ impl IndexMut<usize> for Memory {
     }
 }
 
+pub fn execute_instruction<I: Input, O: Output>(memory: &mut Memory, input: &mut I, output: &mut O, address: &mut usize) -> bool {
+    let instruction = memory[*address];
+    let opcode = instruction % 100;
+    let mode1 = (instruction / 100) % 10;
+    let mode2 = (instruction / 1000) % 10;
+    let mode3 = (instruction / 10000) % 10;
+    if opcode == 99 {
+        return false;
+    } else if opcode == 1 {
+        let param1 = get_param_value(memory, *address + 1, mode1);
+        let param2 = get_param_value(memory, *address + 2, mode2);
+        let out_address = memory[*address + 3];
+        set_memory_value(memory, out_address, mode3, param1 + param2);
+        *address += 4;
+    } else if opcode == 2 {
+        let param1 = get_param_value(memory, *address + 1, mode1);
+        let param2 = get_param_value(memory, *address + 2, mode2);
+        let out_address = memory[*address + 3];
+        set_memory_value(memory, out_address, mode3, param1 * param2);
+        *address += 4;
+    } else if opcode == 3 {
+        let out_address = memory[*address + 1];
+        set_memory_value(memory, out_address, mode1, input.get_next());
+        *address += 2;
+    } else if opcode == 4 {
+        let param1 = get_param_value(memory, *address + 1, mode1);
+        output.output(param1);
+        *address += 2;
+    } else if opcode == 5 {
+        let param1 = get_param_value(memory, *address + 1, mode1);
+        let param2 = get_param_value(memory, *address + 2, mode2);
+        if param1 != 0 {
+            *address = param2 as usize;
+        } else {
+            *address += 3;
+        }
+    } else if opcode == 6 {
+        let param1 = get_param_value(memory, *address + 1, mode1);
+        let param2 = get_param_value(memory, *address + 2, mode2);
+        if param1 == 0 {
+            *address = param2 as usize;
+        } else {
+            *address += 3;
+        }
+    } else if opcode == 7 {
+        let param1 = get_param_value(memory, *address + 1, mode1);
+        let param2 = get_param_value(memory, *address + 2, mode2);
+        let out_address = memory[*address + 3];
+        if param1 < param2 {
+            set_memory_value(memory, out_address, mode3, 1);
+        } else {
+            set_memory_value(memory, out_address, mode3, 0);
+        }
+        *address += 4;
+    } else if opcode == 8 {
+        let param1 = get_param_value(memory, *address + 1, mode1);
+        let param2 = get_param_value(memory, *address + 2, mode2);
+        let out_address = memory[*address + 3];
+        if param1 == param2 {
+            set_memory_value(memory, out_address, mode3, 1);
+        } else {
+            set_memory_value(memory, out_address, mode3, 0);
+        }
+        *address += 4;
+    } else if opcode == 9 {
+        let param1 = get_param_value(memory, *address + 1, mode1);
+        memory.relative_base += param1;
+        *address += 2;
+    } else {
+        panic!("invalid opcode: {} (full instruction: {}@{})", opcode, instruction, *address);
+    }
+    true
+}
+
 pub fn execute_intcode<I: Input, O: Output>(memory: &[i64], input: &mut I, output: &mut O) -> Vec<i64> {
     let mut tape = Memory { memory: memory.to_vec(), relative_base: 0 };
 
     let mut address = 0;
-    loop {
-        let instruction = tape[address];
-        let opcode = instruction % 100;
-        let mode1 = (instruction / 100) % 10;
-        let mode2 = (instruction / 1000) % 10;
-        let mode3 = (instruction / 10000) % 10;
-        if opcode == 99 {
-            break;
-        } else if opcode == 1 {
-            let param1 = get_param_value(&tape, address + 1, mode1);
-            let param2 = get_param_value(&tape, address + 2, mode2);
-            let out_address = tape[address + 3];
-            set_memory_value(&mut tape, out_address, mode3, param1 + param2);
-            address += 4;
-        } else if opcode == 2 {
-            let param1 = get_param_value(&tape, address + 1, mode1);
-            let param2 = get_param_value(&tape, address + 2, mode2);
-            let out_address = tape[address + 3];
-            set_memory_value(&mut tape, out_address, mode3, param1 * param2);
-            address += 4;
-        } else if opcode == 3 {
-            let out_address = tape[address + 1];
-            set_memory_value(&mut tape, out_address, mode1, input.get_next());
-            address += 2;
-        } else if opcode == 4 {
-            let param1 = get_param_value(&tape, address + 1, mode1);
-            output.output(param1);
-            address += 2;
-        } else if opcode == 5 {
-            let param1 = get_param_value(&tape, address + 1, mode1);
-            let param2 = get_param_value(&tape, address + 2, mode2);
-            if param1 != 0 {
-                address = param2 as usize;
-            } else {
-                address += 3;
-            }
-        } else if opcode == 6 {
-            let param1 = get_param_value(&tape, address + 1, mode1);
-            let param2 = get_param_value(&tape, address + 2, mode2);
-            if param1 == 0 {
-                address = param2 as usize;
-            } else {
-                address += 3;
-            }
-        } else if opcode == 7 {
-            let param1 = get_param_value(&tape, address + 1, mode1);
-            let param2 = get_param_value(&tape, address + 2, mode2);
-            let out_address = tape[address + 3];
-            if param1 < param2 {
-                set_memory_value(&mut tape, out_address, mode3, 1);
-            } else {
-                set_memory_value(&mut tape, out_address, mode3, 0);
-            }
-            address += 4;
-        } else if opcode == 8 {
-            let param1 = get_param_value(&tape, address + 1, mode1);
-            let param2 = get_param_value(&tape, address + 2, mode2);
-            let out_address = tape[address + 3];
-            if param1 == param2 {
-                set_memory_value(&mut tape, out_address, mode3, 1);
-            } else {
-                set_memory_value(&mut tape, out_address, mode3, 0);
-            }
-            address += 4;
-        } else if opcode == 9 {
-            let param1 = get_param_value(&tape, address + 1, mode1);
-            tape.relative_base += param1;
-            address += 2;
-        } else {
-            panic!("invalid opcode: {} (full instruction: {}@{})", opcode, instruction, address);
-        }
-    }
+    while execute_instruction(&mut tape, input, output, &mut address) {}
 
     tape.memory
 }
