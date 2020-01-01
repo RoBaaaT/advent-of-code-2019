@@ -25,7 +25,8 @@ impl Network {
     }
 
     fn input(&self, id: usize) -> NICInput {
-        NICInput { id: id, id_assigned: false, last_packet: None, buffer: self.buffers[id].clone() }
+        NICInput { id: id, id_assigned: false, last_packet: None, buffer: self.buffers[id].clone(), idle: false,
+            idle_counter: 0 }
     }
 }
 
@@ -45,7 +46,9 @@ struct NICInput {
     id: usize,
     id_assigned: bool,
     last_packet: Option<Packet>,
-    buffer: Arc<RwLock<VecDeque<Packet>>>
+    buffer: Arc<RwLock<VecDeque<Packet>>>,
+    idle: bool,
+    idle_counter: usize
 }
 
 impl Output for NICOutput {
@@ -74,8 +77,15 @@ impl Input for NICInput {
                 result
             } else if let Some(packet) = self.buffer.write().unwrap().pop_front() {
                 self.last_packet = Some(packet);
+                self.idle = false;
+                self.idle_counter = 0;
                 packet.x
             } else {
+                self.idle_counter += 1;
+                if self.idle_counter > 1 {
+                    self.idle = true;
+                    self.idle_counter = 0;
+                }
                 -1
             }
         } else {
@@ -102,8 +112,39 @@ fn network_part1(memory: &Vec<i64>, size: usize) -> i64 {
     }
 }
 
+fn network_part2(memory: &Vec<i64>, size: usize) -> i64 {
+    let network = Network::new(size);
+    let mut computers = Vec::new();
+    for i in 0..size {
+        computers.push((Memory::new(&memory), 0, network.input(i), network.output()));
+    }
+    let mut last_nat_y_value = 0;
+    loop {
+        for (memory, address, input, output) in &mut computers {
+            execute_instruction(memory, input, output, address);
+        }
+        let idle_count = computers.iter().filter(|(_, _, input, _)| input.idle).count();
+        if idle_count == size {
+            let nat_packet = *network.nat_packet.read().unwrap();
+            if let Some(nat_packet) = nat_packet {
+                if nat_packet.y == last_nat_y_value {
+                    return last_nat_y_value;
+                }
+                network.buffers[0].write().unwrap().push_back(nat_packet);
+                let (_, _, c0_input, _) = &mut computers[0];
+                c0_input.idle = false;
+                last_nat_y_value = nat_packet.y;
+                *network.nat_packet.write().unwrap() = None;
+            } else {
+                panic!("Network idle but no NAT packet available!");
+            }
+        }
+    }
+}
+
 fn main() {
     let input_file = File::open("input.txt").unwrap();
     let tape = load_tape(input_file);
     println!("Part 1: {}", network_part1(&tape, 50));
+    println!("Part 2: {}", network_part2(&tape, 50));
 }
