@@ -152,6 +152,12 @@ pub struct Memory {
     relative_base: i64
 }
 
+impl Memory {
+    pub fn new(memory: &[i64]) -> Memory {
+        Memory { memory: memory.to_vec(), relative_base: 0 }
+    }
+}
+
 impl Index<usize> for Memory {
     type Output = i64;
 
@@ -251,12 +257,12 @@ pub fn execute_instruction<I: Input, O: Output>(memory: &mut Memory, input: &mut
 }
 
 pub fn execute_intcode<I: Input, O: Output>(memory: &[i64], input: &mut I, output: &mut O) -> Vec<i64> {
-    let mut tape = Memory { memory: memory.to_vec(), relative_base: 0 };
+    let mut memory = Memory::new(memory);
 
     let mut address = 0;
-    while execute_instruction(&mut tape, input, output, &mut address) {}
+    while execute_instruction(&mut memory, input, output, &mut address) {}
 
-    tape.memory
+    memory.memory
 }
 
 #[cfg(test)]
