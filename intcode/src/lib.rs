@@ -39,6 +39,32 @@ impl Input for StdInput {
     }
 }
 
+pub struct StdASCIIInput {
+    last_input: String,
+    read_offset: usize
+}
+
+impl StdASCIIInput {
+    pub fn new() -> StdASCIIInput {
+        StdASCIIInput { last_input: String::new(), read_offset: 0 }
+    }
+}
+
+impl Input for StdASCIIInput {
+    fn get_next(&mut self) -> i64 {
+        if self.read_offset >= self.last_input.chars().count() {
+            self.last_input.clear();
+            self.read_offset = 0;
+            io::stdin().read_line(&mut self.last_input).expect("failed to read from stdin");
+            self.last_input = self.last_input.trim().to_string();
+            self.last_input.push('\n');
+        }
+        let result = self.last_input.chars().nth(self.read_offset);
+        self.read_offset += 1;
+        result.unwrap() as i64
+    }
+}
+
 pub struct StdOutput;
 
 impl Output for StdOutput {
